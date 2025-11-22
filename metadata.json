@@ -1,0 +1,7 @@
+{
+  "name": "Pruebas Para cread DB",
+  "description": "SivarSpot is a web platform that allows locals and tourists to discover events, activities, and points of interest in El Salvador. The project combines a search engine with advanced filters, an interactive map, and an event management system to organize or promote activities.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
