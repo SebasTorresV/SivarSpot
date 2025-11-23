@@ -1,17 +1,60 @@
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { Event } from '../types';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  ReactNode,
+  useEffect,
+} from "react";
+import { Event } from "../types";
+import { supabase } from "../utils/supabaseClient"; // crea este archivo como te comenté
 
 interface EventContextType {
   events: Event[];
   loading: boolean;
-  addEvent: (eventData: Omit<Event, 'id'>) => Promise<void>;
+  addEvent: (eventData: Omit<Event, "id">) => Promise<void>;
   deleteEvent: (eventId: string) => Promise<void>;
-  updateEvent: (eventId: string, eventData: Omit<Event, 'id'>) => Promise<void>;
+  updateEvent: (eventId: string, eventData: Omit<Event, "id">) => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
 
-export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+// Ajusta este mapeo según cómo esté definido tu type Event
+const mapRowToEvent = (row: any): Event => ({
+  id: row.id,
+  title: row.title,
+  description: row.description ?? "",
+  // si tu Event tiene otro campo para categoría cambia esto
+  category: row.category_slug ?? "",
+  date: row.date_time,
+  location: row.location ?? "",
+  coordinates: {
+    lat: Number(row.lat ?? 0),
+    lng: Number(row.lng ?? 0),
+  },
+  price: Number(row.price ?? 0),
+  imageUrl: row.image_url ?? "",
+  organizer: row.organizer_name ?? "",
+  featured: row.featured ?? false,
+});
+
+// Igual aquí, adapta los nombres a tu Event y a las columnas reales
+const mapEventToRow = (event: Omit<Event, "id">) => ({
+  title: event.title,
+  description: event.description,
+  category_slug: event.category,
+  date_time: event.date,
+  location: event.location,
+  lat: event.coordinates.lat,
+  lng: event.coordinates.lng,
+  price: event.price,
+  image_url: event.imageUrl,
+  organizer_name: event.organizer,
+  featured: event.featured,
+});
+
+export const EventProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -19,15 +62,21 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const fetchEvents = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/events');
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
+        const { data, error } = await supabase
+          .from("events")
+          .select("*")
+          .order("date_time", { ascending: true });
+
+        if (error) {
+          console.error("Supabase error:", error);
+          setEvents([]);
+          return;
         }
-        const data: Event[] = await response.json();
-        setEvents(data);
+
+        const mapped = (data ?? []).map(mapRowToEvent);
+        setEvents(mapped);
       } catch (error) {
         console.error("Failed to fetch events:", error);
-        // Keep events empty on error to reflect backend unavailability
         setEvents([]);
       } finally {
         setLoading(false);
@@ -37,59 +86,73 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     fetchEvents();
   }, []);
 
-  const addEvent = async (eventData: Omit<Event, 'id'>): Promise<void> => {
+  const addEvent = async (eventData: Omit<Event, "id">): Promise<void> => {
     try {
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(eventData),
-      });
+      const { data, error } = await supabase
+        .from("events")
+        .insert([mapEventToRow(eventData)])
+        .select("*")
+        .single();
 
-      if (!response.ok) {
-        throw new Error('Failed to create event');
+      if (error) {
+        console.error("Error creating event:", error);
+        throw error;
       }
 
-      const newEvent: Event = await response.json();
-      setEvents(prevEvents => [newEvent, ...prevEvents]);
+      if (data) {
+        const newEvent = mapRowToEvent(data);
+        setEvents((prevEvents) => [newEvent, ...prevEvents]);
+      }
     } catch (error) {
       console.error("Error creating event:", error);
-      throw error; // Re-throw error to be handled by the UI form
-    }
-  };
-  
-  const updateEvent = async (eventId: string, eventData: Omit<Event, 'id'>): Promise<void> => {
-    try {
-      const response = await fetch(`/api/events/${eventId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(eventData),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to update event');
-      }
-      const updated: Event = await response.json();
-      setEvents(prevEvents => prevEvents.map(ev => (ev.id === eventId ? updated : ev)));
-    } catch (error) {
-      console.error('Error updating event:', error);
       throw error;
     }
   };
-  
-  const deleteEvent = async (eventId: string): Promise<void> => {
-    try {
-      const response = await fetch(`/api/events/${eventId}`, {
-        method: 'DELETE',
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete event');
+  const updateEvent = async (
+    eventId: string,
+    eventData: Omit<Event, "id">
+  ): Promise<void> => {
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .update(mapEventToRow(eventData))
+        .eq("id", eventId)
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error("Error updating event:", error);
+        throw error;
       }
 
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+      if (data) {
+        const updated = mapRowToEvent(data);
+        setEvents((prevEvents) =>
+          prevEvents.map((ev) => (ev.id === eventId ? updated : ev))
+        );
+      }
+    } catch (error) {
+      console.error("Error updating event:", error);
+      throw error;
+    }
+  };
+
+  const deleteEvent = async (eventId: string): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", eventId);
+
+      if (error) {
+        console.error("Error deleting event:", error);
+        throw error;
+      }
+
+      setEvents((prevEvents) =>
+        prevEvents.filter((event) => event.id !== eventId)
+      );
     } catch (error) {
       console.error("Error deleting event:", error);
       throw error;
@@ -97,7 +160,9 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   return (
-    <EventContext.Provider value={{ events, loading, addEvent, deleteEvent, updateEvent }}>
+    <EventContext.Provider
+      value={{ events, loading, addEvent, deleteEvent, updateEvent }}
+    >
       {children}
     </EventContext.Provider>
   );
@@ -106,7 +171,7 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 export const useEvents = (): EventContextType => {
   const context = useContext(EventContext);
   if (context === undefined) {
-    throw new Error('useEvents must be used within an EventProvider');
+    throw new Error("useEvents must be used within an EventProvider");
   }
   return context;
 };
