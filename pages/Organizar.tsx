@@ -11,33 +11,11 @@ const OrganizePage: React.FC = () => {
   const { events, loading, deleteEvent } = useEvents();
 
   const organizerEvents = useMemo(() => {
-    // 1. Si no ha cargado el usuario o los eventos, salimos
     if (!userProfile || !events) return [];
 
-    // --- ZONA DE DEBUG (MIRA LA CONSOLA F12) ---
-    console.log("🟢 --- INICIO DEBUG PANEL ---");
-    console.log("👤 Mi ID de Usuario (Auth):", userProfile.id);
-    console.log("📅 Total de Eventos descargados:", events.length);
-
-    if (events.length > 0) {
-      const primerEvento = events[0];
-      console.log("🔎 Inspeccionando el primer evento:", primerEvento);
-      
-      // Aquí veremos si la columna 'organizer_id' existe o viene undefined
-      console.log("🔑 ¿Existe organizer_id en el evento?", primerEvento.organizer_id);
-      
-      // Verificamos si los tipos coinciden (a veces uno es número y otro string)
-      console.log(`Comparando: Evento(${primerEvento.organizer_id}) === Usuario(${userProfile.id})`);
-    }
-
-    // 2. EL FILTRO REAL
-    const misEventos = events.filter(event => event.organizer_id === userProfile.id);
-
-    console.log("✅ Eventos que pasaron el filtro:", misEventos.length);
-    console.log("🔴 --- FIN DEBUG PANEL ---");
-    // -------------------------------------------
-
-    return misEventos;
+    // FILTRO POR ID: Compara el ID del organizador del evento con el UID del usuario logueado.
+    // Esto asegura que solo veas tus propios eventos.
+    return events.filter(event => event.organizer_id === userProfile.uid);
     
   }, [events, userProfile]);
 
