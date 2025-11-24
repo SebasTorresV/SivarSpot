@@ -11,9 +11,15 @@ const OrganizePage: React.FC = () => {
   const { events, loading, deleteEvent } = useEvents();
 
   const organizerEvents = useMemo(() => {
-    if (!userProfile) return [];
-    const organizerIdentifier = userProfile.companyName || userProfile.name;
-    return events.filter(event => event.organizer === organizerIdentifier);
+    // Si no hay usuario o no han cargado los eventos, devolvemos array vacío
+    if (!userProfile || !events) return [];
+
+    // --- CORRECCIÓN AQUÍ ---
+    // En lugar de comparar nombres (companyName vs organizer),
+    // comparamos IDs únicos. Esto es infalible.
+    // Asegúrate de que tu interfaz 'Event' tenga la propiedad 'organizer_id'.
+    return events.filter(event => event.organizer_id === userProfile.id);
+    
   }, [events, userProfile]);
 
   const handleDelete = async (eventId: string) => {
