@@ -11,14 +11,33 @@ const OrganizePage: React.FC = () => {
   const { events, loading, deleteEvent } = useEvents();
 
   const organizerEvents = useMemo(() => {
-    // Si no hay usuario o no han cargado los eventos, devolvemos array vacío
+    // 1. Si no ha cargado el usuario o los eventos, salimos
     if (!userProfile || !events) return [];
 
-    // --- CORRECCIÓN AQUÍ ---
-    // En lugar de comparar nombres (companyName vs organizer),
-    // comparamos IDs únicos. Esto es infalible.
-    // Asegúrate de que tu interfaz 'Event' tenga la propiedad 'organizer_id'.
-    return events.filter(event => event.organizer_id === userProfile.id);
+    // --- ZONA DE DEBUG (MIRA LA CONSOLA F12) ---
+    console.log("🟢 --- INICIO DEBUG PANEL ---");
+    console.log("👤 Mi ID de Usuario (Auth):", userProfile.id);
+    console.log("📅 Total de Eventos descargados:", events.length);
+
+    if (events.length > 0) {
+      const primerEvento = events[0];
+      console.log("🔎 Inspeccionando el primer evento:", primerEvento);
+      
+      // Aquí veremos si la columna 'organizer_id' existe o viene undefined
+      console.log("🔑 ¿Existe organizer_id en el evento?", primerEvento.organizer_id);
+      
+      // Verificamos si los tipos coinciden (a veces uno es número y otro string)
+      console.log(`Comparando: Evento(${primerEvento.organizer_id}) === Usuario(${userProfile.id})`);
+    }
+
+    // 2. EL FILTRO REAL
+    const misEventos = events.filter(event => event.organizer_id === userProfile.id);
+
+    console.log("✅ Eventos que pasaron el filtro:", misEventos.length);
+    console.log("🔴 --- FIN DEBUG PANEL ---");
+    // -------------------------------------------
+
+    return misEventos;
     
   }, [events, userProfile]);
 
@@ -41,7 +60,6 @@ const OrganizePage: React.FC = () => {
       </div>
 
       <div className="max-w-4xl mx-auto grid grid-cols-1 gap-12">
-        {/* Create Event Card */}
         <div className="p-8 bg-white rounded-lg shadow-md text-center">
           <h2 className="text-2xl font-semibold text-dark">¿Tienes una nueva idea?</h2>
           <p className="mt-2 text-gray-500">Comienza a dar a conocer tus actividades.</p>
@@ -50,7 +68,6 @@ const OrganizePage: React.FC = () => {
           </Link>
         </div>
 
-        {/* My Events Section */}
         <div className="p-8 bg-white rounded-lg shadow-md">
           <h2 className="text-2xl font-semibold text-dark mb-6">Mis Eventos Creados</h2>
           {loading ? (
@@ -65,11 +82,11 @@ const OrganizePage: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-2 flex-shrink-0">
                     <Link to={`/organizar/editar/${event.id}`}>
-                      <button aria-label="Editar evento" className="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
+                      <button className="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-full transition-colors">
                         <Pencil className="w-5 h-5" />
                       </button>
                     </Link>
-                    <button onClick={() => handleDelete(event.id)} aria-label="Eliminar evento" className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors">
+                    <button onClick={() => handleDelete(event.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors">
                       <Trash className="w-5 h-5" />
                     </button>
                   </div>
