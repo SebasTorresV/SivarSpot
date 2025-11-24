@@ -6,7 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import { Event } from "../types";
-import { supabase } from "../utils/supabaseClient"; // crea este archivo como te comenté
+import { supabase } from "../utils/supabaseClient";
 
 interface EventContextType {
   events: Event[];
@@ -18,12 +18,11 @@ interface EventContextType {
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
 
-// Ajusta este mapeo según cómo esté definido tu type Event
+// --- CORRECCIÓN AQUÍ: Mapeamos organizer_id ---
 const mapRowToEvent = (row: any): Event => ({
   id: row.id,
   title: row.title,
   description: row.description ?? "",
-  // si tu Event tiene otro campo para categoría cambia esto
   category: row.category_slug ?? "",
   date: row.date_time,
   location: row.location ?? "",
@@ -35,9 +34,9 @@ const mapRowToEvent = (row: any): Event => ({
   imageUrl: row.image_url ?? "",
   organizer: row.organizer_name ?? "",
   featured: row.featured ?? false,
+  organizer_id: row.organizer_id, // <--- ¡ESTO FALTABA!
 });
 
-// Igual aquí, adapta los nombres a tu Event y a las columnas reales
 const mapEventToRow = (event: Omit<Event, "id">) => ({
   title: event.title,
   description: event.description,
@@ -50,6 +49,7 @@ const mapEventToRow = (event: Omit<Event, "id">) => ({
   image_url: event.imageUrl,
   organizer_name: event.organizer,
   featured: event.featured,
+  // No necesitamos enviar organizer_id aquí porque la base de datos lo pone sola
 });
 
 export const EventProvider: React.FC<{ children: ReactNode }> = ({
@@ -64,7 +64,7 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({
       try {
         const { data, error } = await supabase
           .from("events")
-          .select("*")
+          .select("*") // Trae todas las columnas, incluyendo organizer_id
           .order("date_time", { ascending: true });
 
         if (error) {
@@ -94,10 +94,7 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({
         .select("*")
         .single();
 
-      if (error) {
-        console.error("Error creating event:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
         const newEvent = mapRowToEvent(data);
@@ -121,10 +118,7 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({
         .select("*")
         .single();
 
-      if (error) {
-        console.error("Error updating event:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
         const updated = mapRowToEvent(data);
@@ -145,10 +139,7 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({
         .delete()
         .eq("id", eventId);
 
-      if (error) {
-        console.error("Error deleting event:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       setEvents((prevEvents) =>
         prevEvents.filter((event) => event.id !== eventId)
