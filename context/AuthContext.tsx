@@ -1,80 +1,160 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { UserProfile } from '../types/auth';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  ReactNode,
+} from "react";
+import { UserProfile } from "../types/auth";
+import { supabase } from "../utils/supabaseClient";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (email: string, pass: string, profileData: Omit<UserProfile, 'uid' | 'email'>) => Promise<void>;
+  register: (
+    email: string,
+    pass: string,
+    profileData: Omit<UserProfile, "uid" | "email">
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+/**
+ * Convierte el usuario de Supabase en tu UserProfile del frontend.
+ * Usa user_metadata para guardar role, name, companyName, etc.
+ */
+const mapSupabaseUserToProfile = (user: SupabaseUser): UserProfile => {
+  const meta: any = user.user_metadata || {};
+
+  return {
+    uid: user.id,
+    email: user.email ?? "",
+    role: (meta.role as UserProfile["role"]) ?? "visitante",
+    name: (meta.name as string) ?? "",
+    companyName: (meta.companyName as string) ?? meta.company_name,
+    companyLocation:
+      (meta.companyLocation as string) ?? meta.company_location,
+    website: (meta.website as string) ?? "",
+    socialMedia: (meta.socialMedia as string) ?? meta.social_media,
+  };
+};
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Al cargar la app, intenta recuperar la sesión desde Supabase
   useEffect(() => {
-    // Check if a user session exists in sessionStorage
-    const checkCurrentUser = () => {
+    const initAuth = async () => {
       try {
-        const storedUser = sessionStorage.getItem('userProfile');
-        if (storedUser) {
-          setUserProfile(JSON.parse(storedUser));
+        const { data, error } = await supabase.auth.getUser();
+        if (!error && data?.user) {
+          const profile = mapSupabaseUserToProfile(data.user);
+          setUserProfile(profile);
+          sessionStorage.setItem("userProfile", JSON.stringify(profile));
+          return;
         }
-      } catch (error) {
-        console.error("Failed to parse user from sessionStorage", error);
-        sessionStorage.removeItem('userProfile');
+
+        // Fallback: si por alguna razón Supabase no devuelve user,
+        // intenta leer de sessionStorage (por ejemplo, sesión vieja).
+        const storedUser = sessionStorage.getItem("userProfile");
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser) as UserProfile;
+            setUserProfile(parsed);
+          } catch (e) {
+            console.error("Failed to parse user from sessionStorage", e);
+            sessionStorage.removeItem("userProfile");
+          }
+        }
+      } catch (e) {
+        console.error("Error initializing auth:", e);
+        sessionStorage.removeItem("userProfile");
       } finally {
         setLoading(false);
       }
     };
 
-    checkCurrentUser();
+    initAuth();
   }, []);
 
   const login = async (email: string, pass: string): Promise<void> => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass }),
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
     });
 
-    if (!response.ok) {
-      // Try to parse error message from backend, otherwise throw generic error
-      const errorData = await response.json().catch(() => ({ message: 'Invalid credentials' }));
-      throw new Error(errorData.message);
+    if (error) {
+      throw new Error(error.message || "Credenciales inválidas");
     }
 
-    const user: UserProfile = await response.json();
-    setUserProfile(user);
-    sessionStorage.setItem('userProfile', JSON.stringify(user));
+    if (!data.user) {
+      throw new Error("No se pudo obtener el usuario después de iniciar sesión");
+    }
+
+    const profile = mapSupabaseUserToProfile(data.user);
+    setUserProfile(profile);
+    sessionStorage.setItem("userProfile", JSON.stringify(profile));
   };
 
   const logout = async (): Promise<void> => {
-    // In a real app, you might want to invalidate the session on the server too
-    // await fetch('/api/auth/logout', { method: 'POST' });
+    await supabase.auth.signOut();
     setUserProfile(null);
-    sessionStorage.removeItem('userProfile');
-    return Promise.resolve();
+    sessionStorage.removeItem("userProfile");
   };
-  
-  const register = async (email: string, pass: string, profileData: Omit<UserProfile, 'uid' | 'email'>): Promise<void> => {
-     const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass, ...profileData }),
+
+  const register = async (
+    email: string,
+    pass: string,
+    profileData: Omit<UserProfile, "uid" | "email">
+  ): Promise<void> => {
+    // Guardamos la información de perfil en user_metadata
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: pass,
+      options: {
+        data: {
+          role: profileData.role,
+          name: profileData.name,
+          companyName: profileData.companyName,
+          companyLocation: profileData.companyLocation,
+          website: profileData.website,
+          socialMedia: profileData.socialMedia,
+        },
+      },
     });
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Registration failed' }));
-        throw new Error(errorData.message);
+    if (error) {
+      throw new Error(error.message || "Error al registrar usuario");
     }
-    
-    const newUser: UserProfile = await response.json();
-    setUserProfile(newUser);
-    sessionStorage.setItem('userProfile', JSON.stringify(newUser));
+
+    if (!data.user) {
+      throw new Error("No se pudo crear el usuario");
+    }
+
+    const newProfile = mapSupabaseUserToProfile(data.user);
+    setUserProfile(newProfile);
+    sessionStorage.setItem("userProfile", JSON.stringify(newProfile));
+
+    // [Opcional] También podrías insertar en tu tabla public.users aquí,
+    // pero eso requiere que la policy de RLS lo permita usando la anon key.
+    //
+    // await supabase.from("users").insert({
+    //   id: data.user.id,
+    //   email,
+    //   role: profileData.role,
+    //   name: profileData.name,
+    //   company_name: profileData.companyName,
+    //   company_location: profileData.companyLocation,
+    //   website: profileData.website,
+    //   social_media: profileData.socialMedia,
+    // });
   };
 
   const value = { userProfile, loading, login, logout, register };
@@ -89,7 +169,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
