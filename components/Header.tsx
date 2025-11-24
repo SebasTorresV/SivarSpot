@@ -4,9 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Menu, X, User, Bookmark } from '../icons';
 import Button from './ui/Button';
 
-// 1. IMPORTAMOS LA IMAGEN
-// Usamos ".." para salir de la carpeta "components" y buscar en "src"
-import sivarLogo from '../SivarSpot.png';
+// NOTA: Ya no importamos la imagen aquí arriba porque ahora está en la carpeta public.
 
 const Header: React.FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -49,15 +47,15 @@ const Header: React.FC = () => {
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
                     <div className="flex-shrink-0">
-                        {/* 2. CAMBIO VISUAL: Imagen en lugar de texto */}
+                        {/* AQUÍ ESTÁ LA CORRECCIÓN: Ruta basada en tu carpeta 'public/scr' */}
                         <Link
                             to="/explorar"
                             className="flex items-center" 
                         >
                             <img 
-                                src={sivarLogo} 
+                                src="/scr/SivarSpot.png" 
                                 alt="SivarSpot" 
-                                className="h-10 w-auto object-contain" // h-10 es aprox 40px de alto. Ajusta si lo ves muy pequeño.
+                                className="h-10 w-auto object-contain" 
                             />
                         </Link>
                     </div>
