@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Menu, X, User, Bookmark } from '../icons';
 import Button from './ui/Button';
+
+// 1. IMPORTAMOS LA IMAGEN
+// Usamos ".." para salir de la carpeta "components" y buscar en "src"
+import sivarLogo from '../SivarSpot.png';
 
 const Header: React.FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -46,12 +49,16 @@ const Header: React.FC = () => {
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
                     <div className="flex-shrink-0">
+                        {/* 2. CAMBIO VISUAL: Imagen en lugar de texto */}
                         <Link
                             to="/explorar"
-                            className="text-2xl font-extrabold text-primary"
+                            className="flex items-center" 
                         >
-                            Sivar
-                            <span className="text-secondary">Spot</span>
+                            <img 
+                                src={sivarLogo} 
+                                alt="SivarSpot" 
+                                className="h-10 w-auto object-contain" // h-10 es aprox 40px de alto. Ajusta si lo ves muy pequeño.
+                            />
                         </Link>
                     </div>
 
