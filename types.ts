@@ -15,6 +15,9 @@ export interface Event {
   imageUrl: string;
   organizer: string;
   featured: boolean;
+  
+  // 👇 AGREGA ESTA LÍNEA (El signo ? es por si algún evento viejo no lo tiene)
+  organizer_id?: string;
 }
 
 export interface Category {
